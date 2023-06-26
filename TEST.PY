@@ -167,4 +167,36 @@ if __name__ =="__main__":
     print("-------------------------synthetic data-----------------------------")
     sdv.synthesize_data('GaussianCopula')
     print(sdv.synthetic_data)
-    
+
+
+
+
+import csv
+from faker import Faker
+
+# 创建 Faker 实例
+faker = Faker()
+
+# 读取原始 CSV 文件
+with open('test.csv', 'r') as file:
+    reader = csv.reader(file)
+    rows = list(reader)
+
+# 添加新列的标题
+header = rows[0]
+header.extend(['Email', 'Credit Card', 'Phone', 'Address'])
+
+# 生成并添加随机数据
+for row in rows[1:]:
+    email = faker.email()
+    credit_card = faker.credit_card_number()
+    phone = faker.numerify(text='#######')
+    address = faker.address()
+
+    row.extend([email, credit_card, phone, address])
+
+# 写入带有新列的 CSV 文件
+with open('output.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(rows)
+
