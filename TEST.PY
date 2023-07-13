@@ -200,3 +200,68 @@ with open('output.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(rows)
 
+
+
+import csv
+import random
+import statistics
+from scipy.stats import beta
+
+# 定义要读取的CSV文件的路径和文件名
+input_file = 'phone.csv'
+
+# 定义目标CSV文件的路径和文件名
+output_file = 'output.csv'
+
+# 定义新的列名和相应的分布参数
+column_info = [
+    {"name": "latest_transaction_amount", "distribution": "norm", "mean": 100, "std_dev": 20},
+    {"name": "latest_salary_amount", "distribution": "beta", "alpha": 2, "beta": 5},
+    {"name": "insurance_amount", "distribution": "uniform", "min": 50, "max": 150}
+]
+
+# 生成符合正态分布的随机数
+def generate_normal(mu, sigma):
+    return random.normalvariate(mu, sigma)
+
+# 生成符合贝塔分布的随机数
+def generate_beta(alpha, beta):
+    return beta.rvs(alpha, beta)
+
+# 生成符合均匀分布的随机数
+def generate_uniform(min_value, max_value):
+    return random.uniform(min_value, max_value)
+
+# 读取CSV文件并添加新列
+with open(input_file, 'r') as csvfile, open(output_file, 'w', newline='') as outfile:
+    reader = csv.DictReader(csvfile)
+    fieldnames = reader.fieldnames + [info['name'] for info in column_info]
+    writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+    writer.writeheader()
+
+    for row in reader:
+        new_row = row.copy()
+
+        for info in column_info:
+            column_name = info['name']
+            distribution = info['distribution']
+            
+            if distribution == 'norm':
+                mean = info['mean']
+                std_dev = info['std_dev']
+                value = generate_normal(mean, std_dev)
+                
+            elif distribution == 'beta':
+                alpha = info['alpha']
+                beta_value = info['beta']
+                value = generate_beta(alpha, beta_value)
+                
+            elif distribution == 'uniform':
+                min_value = info['min']
+                max_value = info['max']
+                value = generate_uniform(min_value, max_value)
+                
+            new_row[column_name] = value
+
+        writer.writerow(new_row)
+
