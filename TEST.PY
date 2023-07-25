@@ -1,267 +1,76 @@
-from sdv.datasets.local import load_csvs
-from sdv.metadata import SingleTableMetadata
-import datetime
+import numpy as np
 import pandas as pd
-import uuid
-import os
-from sdv.lite import SingleTablePreset
-from sdv.evaluation.single_table import evaluate_quality
-from sdv.evaluation.single_table import get_column_plot
-from sdv.single_table import GaussianCopulaSynthesizer
-from sdv.evaluation.single_table import get_column_pair_plot
 
-class singleSDVbuilder:
-    def __init__(self, folder_name, table_name, num_rows=500):
-        self.datasets = load_csvs(folder_name) #type: dict
-        ##change the "weekly" to any other, e.g. happy.csv then switch weekly to happy
-        self.single_table = self.datasets[table_name]
-        self.metadata = SingleTableMetadata()
-        self.metadata.detect_from_dataframe(data=self.single_table)
-        self.num_rows = num_rows #num_rows to synthesize
-        self.synthetic_data = None
-    
-    def single_table_keys(self):
-        return self.single_table.keys()
-    
-    def detect_datetime_format(date_string):
-        formats = [
-            "%Y-%m-%d",  
-            "%Y/%m/%d",  
-            "%d %b %Y",  
-            "%d-%b-%Y",  
-            "%d/%b/%Y"
-        ]
+# 读取现有的CSV文件
+existing_data = pd.read_csv("existing_data.csv")
 
-        for fmt in formats:
-            try:
-                datetime.datetime.strptime(date_string, fmt)
-                return fmt
-            except ValueError:
-                continue
+# 生成数据的数量，与已有数据的行数相同
+data_size = len(existing_data)
 
-        return None 
-    
-    def metadata_update(self):
-        ## update specified metadata
-        for i in self.single_table.columns:
-            if "date" in i.lower():
-                datetime_format = self.detect_datetime_format(self.single_table[i][0])
-                print(datetime_format)
-                self.metadata.update_column(
-                    column_name=i,
-                    sdtype='datetime',
-                    datetime_format=datetime_format
-                )
+# 生成两个符合正态分布的随机数列
+mean_annual_saving, std_annual_saving = 50000, 10000
+mean_salary, std_salary = 80000, 15000
+annual_saving = np.random.normal(mean_annual_saving, std_annual_saving, data_size)
+salary = np.random.normal(mean_salary, std_salary, data_size)
 
-        for i in self.single_table.columns:
-            if "email" in i.lower():
-                    self.metadata.update_column(
-                    column_name="email",
-                    sdtype="email",
-                    pii=True
-                )
+# 添加一些噪音，使数据稍微分散开来
+noise = np.random.normal(0, 5000, data_size)
+annual_saving += noise
+salary += noise
 
-        for i in self.single_table.columns:
-            if "address" in i.lower():
-                self.metadata.update_column(
-                column_name="address",
-                sdtype="address",
-                pii=True
-                )
+# 确保两列之间存在一定的线性相关性
+correlation = 0.8
+salary = correlation * annual_saving + (1 - correlation) * salary
 
-        for i in self.single_table.columns:
-            if "card" in i.lower():
-                self.metadata.update_column(
-                column_name="card",
-                sdtype="card",
-                pii=True
-                )
-                
-        ## check primary key
-    def check_unique_columns(df):
-        unique_columns = []
-        for column in df.columns:
-            if df[column].nunique() == df.shape[0]:
-                unique_columns.append(column)
-        return unique_columns
+# 将生成的数据添加到现有的DataFrame中
+existing_data['annual_saving'] = annual_saving
+existing_data['salary'] = salary
 
-    def create_unique_column(df):
-        new_column_name = str(uuid.uuid4())  
-        df[new_column_name] = None  
-        return df
-    
-    def check_unique_column(self):
-        unique_columns = self.check_unique_columns(self.single_table)
+# 将数据保存为新的CSV文件
+existing_data.to_csv('updated_data.csv', index=False)
 
-        if len(unique_columns) == 0:
-            self.single_table = self.create_unique_column(self.single_table)
-            self.metadata.set_primary_key(
-            column_name=self.single_table.columns[-1]
-        )
-        else:
-            self.single_table.columns[-1]
-            
-    def metadata_json(self):
-        if os.path.exists('metadata.json'):
-            os.remove('metadata.json')
-        self.metadata.save_to_json('metadata.json')
-        self.metadata = SingleTableMetadata.load_from_json('metadata.json')
-        
-        
-    def synthesize_data(self, method):
-        '''
-        method:['FAST_ML', 'GaussianCopula']
-        '''
-        if method == 'FAST_ML':
-            self.synthesizer = SingleTablePreset(self.metadata, name='FAST_ML')
-        elif method == 'GaussianCopula':
-            self.synthesizer = GaussianCopulaSynthesizer(self.metadata)
-        self.synthesizer.fit(data=self.single_table)
-        self.synthetic_data = self.synthesizer.sample(self.num_rows)
-        self.synthesizer.save('my_synthesizer.pkl')
-        print(self.synthetic_data)
-        
-    def quality_report(self):
-        self.quality_report = evaluate_quality(
-            self.single_table,
-            self.synthetic_data,
-            self.metadata)
-        
-    def get_column_plots(self):
-        for i in self.single_table.columns:
-            print(f"This is the synthetic evaluation for attribute:{i}")
-            fig = get_column_plot(
-                real_data=self.single_table,
-                synthetic_data=self.synthetic_data,
-                column_name=i,
-                metadata=self.metadata
-            )
+print("已将生成的数据添加到updated_data.csv")
 
-            fig.show()
-    
-    def get_column_pair_plot(self):
-        fig = get_column_pair_plot(
-            real_data=self.single_table,
-            synthetic_data=self.synthetic_data,
-            column_names=self.single_table.columns,
-            metadata=self.metadata
-        )
+import numpy as np
+import pandas as pd
 
-        fig.show()
-        
-        
-    def loadGaussianCopula(self, method):
-        if method == 'GaussianCopula':
-            self.synthesizer = GaussianCopulaSynthesizer.load('my_synthesizer.pkl')
+# 读取现有的CSV文件
+existing_data = pd.read_csv("existing_data.csv")
 
-if __name__ =="__main__":
-    print("hello")
-    folder_name = 'data/'
-    table_name = 'test2'
-    sdv = singleSDVbuilder(folder_name, table_name)
-    print(sdv)
-    print("-------------------------sdv.single_table-----------------------------")
-    print(sdv.single_table)
-    print("-------------------------sdv.metadata-----------------------------")
-    print(sdv.metadata)
-    print("-------------------------synthetic data-----------------------------")
-    sdv.synthesize_data('GaussianCopula')
-    print(sdv.synthetic_data)
+# 生成数据的数量，与已有数据的行数相同
+data_size = len(existing_data)
 
+# 生成符合正态分布的annual_saving数据
+mean_annual_saving, std_annual_saving = 50000, 10000
+annual_saving = np.random.normal(mean_annual_saving, std_annual_saving, data_size)
 
+# 添加一些噪音，使数据稍微分散开来
+noise = np.random.normal(0, 5000, data_size)
+annual_saving += noise
 
+# 确保annual_saving和debt_in_track之间存在非线性相关性
+correlation_annual_debt = 0.6  # 非线性相关性系数
+debt_in_track = correlation_annual_debt * np.sqrt(annual_saving) + np.random.normal(0, 5000, data_size)
 
-import csv
-from faker import Faker
+# 生成符合正态分布的salary数据
+mean_salary, std_salary = 80000, 15000
+salary = np.random.normal(mean_salary, std_salary, data_size)
 
-# 创建 Faker 实例
-faker = Faker()
+# 添加一些噪音，使数据稍微分散开来
+salary += noise
 
-# 读取原始 CSV 文件
-with open('test.csv', 'r') as file:
-    reader = csv.reader(file)
-    rows = list(reader)
+# 确保annual_saving和salary之间存在线性相关性
+correlation_annual_salary = 0.8  # 线性相关性系数
+salary = correlation_annual_salary * annual_saving + (1 - correlation_annual_salary) * salary
 
-# 添加新列的标题
-header = rows[0]
-header.extend(['Email', 'Credit Card', 'Phone', 'Address'])
+# 将生成的数据添加到现有的DataFrame中
+existing_data['annual_saving'] = annual_saving
+existing_data['salary'] = salary
+existing_data['debt_in_track'] = debt_in_track
 
-# 生成并添加随机数据
-for row in rows[1:]:
-    email = faker.email()
-    credit_card = faker.credit_card_number()
-    phone = faker.numerify(text='#######')
-    address = faker.address()
+# 将数据保存为新的CSV文件
+existing_data.to_csv('updated_data.csv', index=False)
 
-    row.extend([email, credit_card, phone, address])
+print("已将生成的数据添加到updated_data.csv")
 
-# 写入带有新列的 CSV 文件
-with open('output.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    writer.writerows(rows)
-
-
-
-import csv
-import random
-import statistics
-from scipy.stats import beta
-
-# 定义要读取的CSV文件的路径和文件名
-input_file = 'phone.csv'
-
-# 定义目标CSV文件的路径和文件名
-output_file = 'output.csv'
-
-# 定义新的列名和相应的分布参数
-column_info = [
-    {"name": "latest_transaction_amount", "distribution": "norm", "mean": 100, "std_dev": 20},
-    {"name": "latest_salary_amount", "distribution": "beta", "alpha": 2, "beta": 5},
-    {"name": "insurance_amount", "distribution": "uniform", "min": 50, "max": 150}
-]
-
-# 生成符合正态分布的随机数
-def generate_normal(mu, sigma):
-    return random.normalvariate(mu, sigma)
-
-# 生成符合贝塔分布的随机数
-def generate_beta(alpha, beta):
-    return beta.rvs(alpha, beta)
-
-# 生成符合均匀分布的随机数
-def generate_uniform(min_value, max_value):
-    return random.uniform(min_value, max_value)
-
-# 读取CSV文件并添加新列
-with open(input_file, 'r') as csvfile, open(output_file, 'w', newline='') as outfile:
-    reader = csv.DictReader(csvfile)
-    fieldnames = reader.fieldnames + [info['name'] for info in column_info]
-    writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-    writer.writeheader()
-
-    for row in reader:
-        new_row = row.copy()
-
-        for info in column_info:
-            column_name = info['name']
-            distribution = info['distribution']
-            
-            if distribution == 'norm':
-                mean = info['mean']
-                std_dev = info['std_dev']
-                value = generate_normal(mean, std_dev)
-                
-            elif distribution == 'beta':
-                alpha = info['alpha']
-                beta_value = info['beta']
-                value = generate_beta(alpha, beta_value)
-                
-            elif distribution == 'uniform':
-                min_value = info['min']
-                max_value = info['max']
-                value = generate_uniform(min_value, max_value)
-                
-            new_row[column_name] = value
-
-        writer.writerow(new_row)
 
