@@ -73,4 +73,17 @@ existing_data.to_csv('updated_data.csv', index=False)
 
 print("已将生成的数据添加到updated_data.csv")
 
+import pandas as pd
+
+# Read the CSV file
+data = pd.read_csv("your_input_file.csv")
+
+# Find the numerical columns
+numerical_columns = data.select_dtypes(include=[float, int]).columns
+
+# Round the numerical columns to two decimal places
+data[numerical_columns] = data[numerical_columns].round(2)
+
+# Save the updated data to a new CSV file
+data.to_csv("your_output_file.csv", index=False)
 
